@@ -24,14 +24,14 @@ func readFileAsString(path string) (string, error) {
 }
 
 func loadTruthsAndDares() {
-	dare_texts, err := readFileAsString("dare.txt")
+	dare_texts, err := readFileAsString("questions/dare.txt")
 	if err != nil {
 		os.Exit(1)
 	}
 	splitted_dare_texts := strings.Split(dare_texts, "|")
 	Dares = append(Dares, splitted_dare_texts...)
 
-	truth_texts, err := readFileAsString("./truth.txt")
+	truth_texts, err := readFileAsString("questions/truth.txt")
 	if err != nil {
 		os.Exit(1)
 	}
