@@ -2,15 +2,19 @@ package main
 
 const BOT_NAME_FA = "جرات - حقیقت"
 const BOT_NAME_EN = "Truth - Dare"
-const APIKEY = "5365644695:AAEzvWrPGxpki0H-3tNSrZ3AV-DiMxTMe5o"
+const APIKEY = "YOUR_API_KEY"
 
 // For cheating; that's a game for prank, but you can enter nothing here.
-var GOOD_USERNAMES []string = []string{"0ne-zero"}
+var GOOD_USERNAMES []string
+var MAX_CHEAT_TIME int
+
+// Which username answered which questions.
+var UserAnswered = make(map[string][]int)
 
 var MODES = []string{"RECRUITMENT", "CHOISE", "RESPONSE", "END"}
 var CURRENT_MODE string
 
-const START_FROM_BOT_SPECIFIER = "/start@HaghighatJorwat_bot"
+const START_FROM_BOT_SPECIFIER = "/start@"
 
 // Formats
 const WELCOME_MESSAGE = `سلام کاربر « %s » گرامی  به ربات جرات و حقیقت خوش آمدی 💐`

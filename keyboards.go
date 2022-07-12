@@ -17,6 +17,9 @@ var RECRUITMENT_KEYBOARD = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardButtonData("شروع بازی \U0001F608", "start_game"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("بیا پایین \U0001F447", "come_down"),
+	),
+	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("پایان بازی \U0001F3C1", "finish"),
 	),
 )

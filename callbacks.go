@@ -8,7 +8,23 @@ import (
 )
 
 func start_game_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
-	turnSelection(update, bot, senter_username)
+	if MODERATOR_USERNAME == "" {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, NO_LEADER)
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
+	if senter_username != MODERATOR_USERNAME {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, YOU_ARE_NOT_MODERATOR)
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
+	turnSelection(update, bot)
 }
 func i_am_in_callback(senter_username string, update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 	// Moderator wants to join to players, but her/his already is part of it
@@ -32,6 +48,28 @@ func i_am_in_callback(senter_username string, update tgbotapi.Update, bot *tgbot
 	// There isn't any problem, so add the who wants to be parts of players list
 	PLAYERS_USERNAME = append(PLAYERS_USERNAME, senter_username)
 
+	// Create moderator info
+	moderator_info := fmt.Sprintf("%s\n%s", MODERATOR_USERNAME_FORMAT, MODERATOR_USERNAME)
+	// Create players info
+	players_info := fmt.Sprintf("%s\n%s", PLAYERS_USERNAME_FORMAT, breakStringSliceInLines(PLAYERS_USERNAME))
+	// Finally text
+	text := fmt.Sprintf("%s\n%s\n%s\n\n\n%s", BOT_NAME_FA, moderator_info, players_info, JUST_MODERATOR_CAN_CONTROL)
+	var chat_id int64
+	if update.MyChatMember != nil {
+		chat_id = update.MyChatMember.Chat.ID
+	} else {
+		chat_id = update.FromChat().ChatConfig().ChatID
+	}
+	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(chat_id, update.CallbackQuery.Message.MessageID, text, RECRUITMENT_KEYBOARD)
+	if _, err := bot.Send(edit_msg); err != nil {
+		fmt.Println(err)
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "نشد, یک مشکلی پیش اومد")
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
 	// Send pop-up to user
 	callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "تو جزو بازیکن ها شدی")
 	if _, err := bot.Request(callback); err != nil {
@@ -47,12 +85,31 @@ func next_person_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_u
 		}
 		return
 	}
-	turnSelection(update, bot, senter_username)
+	turnSelection(update, bot)
 }
-func truth_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
+func responded_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
+	if senter_username != WHO_IS_TURN {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, ITS_NOT_YOUR_TURN)
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
+	turnSelection(update, bot)
+}
+func truth_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
+	if senter_username != WHO_IS_TURN {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, ITS_NOT_YOUR_TURN)
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
 	// Question
 	var q string = Truths[rand.Intn(len(Truths))]
-	text := fmt.Sprintf("%s.\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
+	text := fmt.Sprintf("%s\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
 	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID, text, RESPONSE_KEYBOARD)
 	if _, err := bot.Send(edit_msg); err != nil {
 		fmt.Println(err)
@@ -65,10 +122,18 @@ func truth_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 	}
 	IS_TRUTH_OR_DARE = "TRUTH"
 }
-func dare_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
+func dare_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
+	if senter_username != WHO_IS_TURN {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, ITS_NOT_YOUR_TURN)
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
 	// Question
 	var q string = Dares[rand.Intn(len(Dares))]
-	text := fmt.Sprintf("%s.\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
+	text := fmt.Sprintf("%s\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
 	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID, text, RESPONSE_KEYBOARD)
 	if _, err := bot.Send(edit_msg); err != nil {
 		fmt.Println(err)
@@ -82,7 +147,15 @@ func dare_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 
 	IS_TRUTH_OR_DARE = "DARE"
 }
-func random_question_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
+func random_question_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
+	if senter_username != WHO_IS_TURN {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, ITS_NOT_YOUR_TURN)
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
 	// Question
 	var q string
 
@@ -97,7 +170,7 @@ func random_question_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 		IS_TRUTH_OR_DARE = "DARE"
 	}
 
-	text := fmt.Sprintf("%s.\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
+	text := fmt.Sprintf("%s\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
 	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID, text, RESPONSE_KEYBOARD)
 	if _, err := bot.Send(edit_msg); err != nil {
 		fmt.Println(err)
@@ -165,8 +238,13 @@ func recruitment_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 
 	// Finally text
 	text := fmt.Sprintf("%s\n%s\n%s\n\n\n%s", BOT_NAME_FA, moderator_info, players_info, JUST_MODERATOR_CAN_CONTROL)
-
-	msg := tgbotapi.NewMessage(update.FromChat().ChatConfig().ChatID, text)
+	var chat_id int64
+	if update.MyChatMember != nil {
+		chat_id = update.MyChatMember.Chat.ID
+	} else {
+		chat_id = update.FromChat().ChatConfig().ChatID
+	}
+	msg := tgbotapi.NewMessage(chat_id, text)
 
 	// Set appropiate inline keyboard
 	msg.ReplyMarkup = RECRUITMENT_KEYBOARD
@@ -197,7 +275,7 @@ func next_question_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter
 	} else if IS_TRUTH_OR_DARE == "DARE" {
 		q = Dares[rand.Intn(len(Dares))]
 	}
-	text := fmt.Sprintf("%s.\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
+	text := fmt.Sprintf("%s\n\n%s\n\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), q, FAST_RESPONSE)
 	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID, text, RESPONSE_KEYBOARD)
 	if _, err := bot.Send(edit_msg); err != nil {
 		fmt.Println(err)
@@ -233,30 +311,31 @@ func return_menu_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_u
 	CURRENT_MODE = "CHOISE"
 }
 func finish_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
-	if senter_username != MODERATOR_USERNAME {
-		if senter_username != WHO_IS_TURN {
+	if senter_username == MODERATOR_USERNAME {
+		del_request := tgbotapi.NewDeleteMessage(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID)
+		if _, err := bot.Request(del_request); err != nil {
+			fmt.Println(err)
 			// Send pop-up to user
-			callback := tgbotapi.NewCallback(update.CallbackQuery.ID, YOU_ARE_NOT_MODERATOR)
+			callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "نشد, یک مشکلی پیش اومد")
 			if _, err := bot.Request(callback); err != nil {
 				fmt.Println(err)
 			}
 			return
 		}
-	}
-	del_request := tgbotapi.NewDeleteMessage(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID)
-	if _, err := bot.Request(del_request); err != nil {
-		fmt.Println(err)
+		MODERATOR_USERNAME = ""
+		PLAYERS_USERNAME = nil
+		WHO_IS_TURN = ""
+	} else {
 		// Send pop-up to user
-		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "نشد, یک مشکلی پیش اومد")
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, YOU_ARE_NOT_MODERATOR)
 		if _, err := bot.Request(callback); err != nil {
 			fmt.Println(err)
 		}
-		return
 	}
-	CURRENT_MODE = "FINISH"
+
 }
 func come_down_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
-	if senter_username != MODERATOR_USERNAME || senter_username != WHO_IS_TURN {
+	if senter_username != MODERATOR_USERNAME && senter_username != WHO_IS_TURN {
 		if senter_username != WHO_IS_TURN {
 			// Send pop-up to user
 			callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "نه کنترل کننده ای و نه نوبت تو هست, گمشو کنار")
@@ -297,16 +376,17 @@ func come_down_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_use
 }
 
 func home_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
-	if senter_username != MODERATOR_USERNAME || senter_username != WHO_IS_TURN {
+	if senter_username != WHO_IS_TURN {
 		if senter_username != WHO_IS_TURN {
 			// Send pop-up to user
-			callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "نه کنترل کننده ای و نه نوبت تو هست, گمشو کنار")
+			callback := tgbotapi.NewCallback(update.CallbackQuery.ID, ITS_NOT_YOUR_TURN)
 			if _, err := bot.Request(callback); err != nil {
 				fmt.Println(err)
 			}
 			return
 		}
 	}
+
 	// Create moderator info
 	moderator_info := fmt.Sprintf("%s\n%s", MODERATOR_USERNAME_FORMAT, MODERATOR_USERNAME)
 
@@ -316,7 +396,7 @@ func home_callback(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username
 	// Finally text
 	text := fmt.Sprintf("%s\n%s\n%s\n\n\n%s", BOT_NAME_FA, moderator_info, players_info, JUST_MODERATOR_CAN_CONTROL)
 
-	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(update.FromChat().ChatConfig().ChatID, update.Message.MessageID, text, RECRUITMENT_KEYBOARD)
+	edit_msg := tgbotapi.NewEditMessageTextAndMarkup(update.FromChat().ChatConfig().ChatID, update.CallbackQuery.Message.MessageID, text, RECRUITMENT_KEYBOARD)
 	if _, err := bot.Send(edit_msg); err != nil {
 		fmt.Println(err)
 		// Send pop-up to user

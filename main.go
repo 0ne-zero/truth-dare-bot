@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -13,8 +14,10 @@ import (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	loadTruthsAndDares()
-
+	// For edit turth and dare file in live, we load it every time in choosing question
+	// It's has over-processing but, i need it
+	// loadTruthsAndDares()
+	readCheatingUsernames()
 	bot, err := tgbotapi.NewBotAPI(APIKEY)
 	if err != nil {
 		fmt.Println(err)
@@ -26,7 +29,7 @@ func main() {
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = 10
 
 	updates := bot.GetUpdatesChan(u)
 
@@ -41,7 +44,7 @@ func main() {
 		if update.Message != nil {
 			if update.Message.IsCommand() {
 				// If sent text equals to START_FROM_BOT_SPECIFIER means, someone start bot from group and without robot link.
-				if update.Message.Text == START_FROM_BOT_SPECIFIER {
+				if strings.Contains(update.Message.Text, START_FROM_BOT_SPECIFIER) {
 					start_handler(update, bot)
 					continue
 				}
@@ -64,11 +67,11 @@ func main() {
 				i_am_leader_callback(update, bot, senter_username)
 			// GAME
 			case "random_question":
-				random_question_callback(update, bot)
+				random_question_callback(update, bot, senter_username)
 			case "truth":
-				truth_callback(update, bot)
+				truth_callback(update, bot, senter_username)
 			case "dare":
-				dare_callback(update, bot)
+				dare_callback(update, bot, senter_username)
 			case "come_down":
 				come_down_callback(update, bot, senter_username)
 			case "finish":
@@ -77,7 +80,7 @@ func main() {
 				home_callback(update, bot, senter_username)
 			// RESPONSE
 			case "responded":
-				turnSelection(update, bot, senter_username)
+				responded_callback(update, bot, senter_username)
 			case "next_person":
 				next_person_callback(update, bot, senter_username)
 			case "next_question":
@@ -90,7 +93,7 @@ func main() {
 	}
 }
 
-func turnSelection(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username string) {
+func turnSelection(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 	if MODERATOR_USERNAME == "" {
 		// Send pop-up to user
 		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, NO_LEADER)
@@ -99,17 +102,8 @@ func turnSelection(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username
 		}
 		return
 	}
-	if senter_username != MODERATOR_USERNAME {
-		// Send pop-up to user
-		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, YOU_ARE_NOT_MODERATOR)
-		if _, err := bot.Request(callback); err != nil {
-			fmt.Println(err)
-		}
-		return
-	}
-
 	// Select a player for play the game
-	randomSelectionPlayers()
+	randomSelectionPlayers(update, bot)
 
 	// Edit previous bot's message to a game keyboard
 	text := fmt.Sprintf("%s\n%s", fmt.Sprintf(TURN_FORMAT, WHO_IS_TURN), TAKE_CHOISE)
@@ -122,7 +116,7 @@ func turnSelection(update tgbotapi.Update, bot *tgbotapi.BotAPI, senter_username
 }
 func start_handler(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 	// Bot started in a group
-	if update.Message.Chat.Type == "group" || update.Message.Text == START_FROM_BOT_SPECIFIER {
+	if update.Message.Chat.Type == "group" || update.Message.Text == START_FROM_BOT_SPECIFIER || update.Message.Text == "/start" {
 		if CURRENT_MODE == "END" || CURRENT_MODE == "" {
 			recruitment_callback(update, bot)
 			return
@@ -143,27 +137,46 @@ func start_handler(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
 }
 
 // NOT EXACTLY RANDOM - SEE VARS.GOOD_USERNAMES
-func randomSelectionPlayers() {
-	// if len(PLAYERS_USERNAME) < 2 {
-	// 	// Send pop-up to user
-	// 	callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "برای شروع بازی حداقل دو بازیکن نیاز گلابی")
-	// 	if _, err := bot.Request(callback); err != nil {
-	// 		fmt.Println(err)
-	// 	}
-	// 	return
-	// }
-	retry_time := 0
-
-	result := PLAYERS_USERNAME[rand.Intn(len(PLAYERS_USERNAME))]
-
-	for stringIsExistsInSlice(result, GOOD_USERNAMES) {
-		if retry_time > 3 {
-			WHO_IS_TURN = result
-			return
+func randomSelectionPlayers(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
+	// If there are less than two player, they can't play
+	if len(PLAYERS_USERNAME) < 2 {
+		// Send pop-up to user
+		callback := tgbotapi.NewCallback(update.CallbackQuery.ID, "برای شروع بازی حداقل دو بازیکن نیاز گلابی")
+		if _, err := bot.Request(callback); err != nil {
+			fmt.Println(err)
 		}
-
-		result = PLAYERS_USERNAME[rand.Intn(len(PLAYERS_USERNAME))]
-		retry_time += 1
+		return
 	}
-	WHO_IS_TURN = result
+	// We load settings every time, just for have ability to live change settings
+
+	// For edit turth and dare file in live, we load it every time in choosing question
+	// It's has over-processing but, i need it
+	loadTruthsAndDares()
+	// Read cheating.json file and extract good usernames(for cheating) and cheat_time
+	readCheatingUsernames()
+
+	// If cheating setting are seted
+	if MAX_CHEAT_TIME != 0 && MAX_CHEAT_TIME > 0 && GOOD_USERNAMES != nil && len(GOOD_USERNAMES) > 0 {
+		// Choose random username
+		result := PLAYERS_USERNAME[rand.Intn(len(PLAYERS_USERNAME))]
+
+		var retry_time int = 0
+		// If username is a good username try to choose again
+		// If we come to MAX_CHEAT_TIME, unfortunately it's good username turn to choose truth or dare
+		for stringIsExistsInSlice(result, GOOD_USERNAMES) == true {
+			if retry_time > MAX_CHEAT_TIME {
+				WHO_IS_TURN = result
+				return
+			}
+			result = PLAYERS_USERNAME[rand.Intn(len(PLAYERS_USERNAME))]
+			retry_time += 1
+		}
+		WHO_IS_TURN = result
+		return
+		// We are not cheating
+	} else {
+		// Choose random username
+		WHO_IS_TURN = PLAYERS_USERNAME[rand.Intn(len(PLAYERS_USERNAME))]
+		return
+	}
 }
