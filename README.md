@@ -4,6 +4,7 @@
 - This project is a telegram bot for controlling truth-dare game
 - Project main language is in persian but if you have some experience in edit some text, you can change bot responses
 - This bot has a fun part and that is cheating in the game, if you insert some telegram username in cheating.json file, you can cheat in the turning process of game
+- The bot questions are in the /questions folder, you can change them as well
 
 ## Technologies Used
 - Golang v1.8
