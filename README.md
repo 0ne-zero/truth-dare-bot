@@ -1,4 +1,4 @@
-## Telegram truth-dare game Bot
+## Telegram Truth-Dare Game Bot
 
 ## General Information
 - This project is a telegram bot for controlling truth-dare game
